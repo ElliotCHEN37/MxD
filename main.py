@@ -7,7 +7,6 @@ import time
 
 BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
 
-
 def main():
     parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.0(2), by ElliotCHEN37")
 
@@ -16,8 +15,9 @@ def main():
     parser.add_argument("-t", "--track", help="Track Title")
     parser.add_argument("-l", "--album", help="Album Name")
     parser.add_argument("--token", help="User Token (optional)")
-    parser.add_argument("--refresh-token", help="Refresh user token")
+    parser.add_argument("--refresh-token", action="store_true", help="Refresh user token")
     parser.add_argument("--synced", action="store_true", help="Download synced lyric (optional)")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing .lrc files")
     parser.add_argument("--max-depth", type=int, default=1, help="Max searching depth in sub-folder")
     parser.add_argument("--wait", type=float, default=30.0, help="Wait for a moment between downloads")
 
@@ -36,16 +36,13 @@ def main():
         token = IfTokenAvailable()
 
     if args.path:
+        ifRaisedRequest = False
         path_obj = Path(args.path)
         if path_obj.exists():
             print(f"Processing: {args.path}")
             files = scan(args.path, args.max_depth)
 
             for i, file_path in enumerate(files):
-                if i > 0:
-                    print(f"Waiting for {args.wait} seconds")
-                    time.sleep(args.wait)
-
                 artist, track, album = processMetaData(file_path)
                 if not artist or not track:
                     print(f"Skipping: {file_path.name}")
@@ -53,7 +50,16 @@ def main():
 
                 save_dest = file_path.with_suffix(".lrc")
 
+                if save_dest.exists() and not args.overwrite:
+                    print(f"Skipping: {artist} - {track}")
+                    continue
+
+                if ifRaisedRequest:
+                    print(f"Waiting for {args.wait} seconds")
+                    time.sleep(args.wait)
+
                 lyric_data = fetchLyric(artist, track, token, album)
+                ifRaisedRequest = True
                 parseLyric(lyric_data, save_dest, args.synced)
 
         else:
@@ -71,7 +77,7 @@ def main():
 
 def requestToken():
     print("Requesting token")
-    token_response = requests.get(BASE_URL + "token.get?app_id=web-desktop-app-v1.0")
+    token_response = requests.get(BASE_URL + "token.get?app_id=web-desktop-app-v1.0", timeout=10)
     print("Parsing token")
     token_data = token_response.json()
     token = token_data["message"]["body"]["user_token"]
@@ -93,44 +99,48 @@ def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
     if ALBUM:
         params["q_album"] = ALBUM
 
-    lyric_response = requests.get(BASE_URL + "macro.subtitles.get", params=params)
+    lyric_response = requests.get(BASE_URL + "macro.subtitles.get", params=params, timeout=10)
     lyric_data = lyric_response.json()
     return lyric_data
 
 def parseLyric(lyric_data, destination, use_synced):
     print("Parsing lyric")
-    requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"]["status_code"]
+    try:
+        requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"]["status_code"]
 
-    if requestStatusCode == 401:
-        print("Token invalid")
+        if requestStatusCode == 401:
+            print("Token invalid")
 
-    elif requestStatusCode == 200:
-        print("Status code == 200")
-        lyricIfRestricted = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["restricted"]
-        lyricIfInstrumental = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["instrumental"]
-        lyricBody = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["lyrics_body"]
-        lyricIfSyncedAvailable = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["header"]["available"]
+        elif requestStatusCode == 200:
+            print("Status code == 200")
+            lyricIfRestricted = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["restricted"]
+            lyricIfInstrumental = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["instrumental"]
+            lyricBody = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["lyrics_body"]
+            lyricIfSyncedAvailable = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["header"]["available"]
 
-        if lyricIfRestricted:
-            print("Restricted lyric")
-            return
-        elif lyricIfInstrumental:
-            print("Instrumental")
-            writeFile(destination, f"This song is instrumental.\nLet the music play...")
-        elif lyricIfSyncedAvailable:
-            if use_synced:
-                print("Synced lyric available, writing")
-                lyricSyncedBody = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["body"]["subtitle_list"][0]["subtitle"]["subtitle_body"]
-                writeFile(destination, lyricSyncedBody)
+            if lyricIfRestricted:
+                print("Restricted lyric")
+                return
+            elif lyricIfInstrumental:
+                print("Instrumental")
+                writeFile(destination, f"This song is instrumental.\nLet the music play...")
+            elif lyricIfSyncedAvailable:
+                if use_synced:
+                    print("Synced lyric available, writing")
+                    lyricSyncedBody = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["body"]["subtitle_list"][0]["subtitle"]["subtitle_body"]
+                    writeFile(destination, lyricSyncedBody)
+                else:
+                    print("Writing the unsynced one")
+                    writeFile(destination, lyricBody)
             else:
-                print("Writing the unsynced one")
+                print("Synced lyric not available, using the unsynced one instead")
                 writeFile(destination, lyricBody)
-        else:
-            print("Synced lyric not available, using the unsynced one instead")
-            writeFile(destination, lyricBody)
 
-    else:
-        print(f"Error occurred, status code: {requestStatusCode}")
+        else:
+            print(f"Error occurred, status code: {requestStatusCode}")
+    except (KeyError, TypeError) as e:
+        print(f"Error occurred when parsing response: {e}")
+        return
 
 def writeFile(destination, content):
     print("Writing file")

@@ -1,6 +1,5 @@
 import requests
 import argparse
-import sys
 import os
 from mutagen import File
 from pathlib import Path
@@ -17,16 +16,21 @@ def main():
     parser.add_argument("-t", "--track", help="Track Title")
     parser.add_argument("-l", "--album", help="Album Name")
     parser.add_argument("--token", help="User Token (optional)")
+    parser.add_argument("--refresh-token", help="Refresh user token")
     parser.add_argument("--synced", action="store_true", help="Download synced lyric (optional)")
     parser.add_argument("--max-depth", type=int, default=1, help="Max searching depth in sub-folder")
     parser.add_argument("--wait", type=float, default=30.0, help="Wait for a moment between downloads")
 
     args = parser.parse_args()
 
-
     if args.token:
         print("User token available, continue")
         token = args.token
+    elif args.refresh_token:
+        print("Refreshing user token")
+        token = requestToken()
+        writeFile(".token", token)
+        print("Token written")
     else:
         print("User token not available, requesting")
         token = IfTokenAvailable()
@@ -106,7 +110,7 @@ def parseLyric(lyric_data, destination, use_synced):
 
         if lyricIfRestricted:
             print("Restricted lyric")
-            sys.exit(0)
+            return
         elif lyricIfInstrumental:
             print("Instrumental")
             writeFile(destination, f"This song is instrumental.\nLet the music play...")
@@ -157,7 +161,7 @@ def processMetaData(file_path):
     for key in artist_keys:
         if key in audio:
             artist = str(audio[key][0])
-            for separator in ['/', ',', ';', '&', 'feat.', 'with']:
+            for separator in ['/', ',', ';', '&', 'feat. ', 'with ']:
                 if separator in artist.lower():
                     artist = artist.split(separator, 1)[0].strip()
             break

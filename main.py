@@ -37,7 +37,11 @@ def main():
             print(f"Processing: {args.path}")
             files = scan(args.path, args.max_depth)
 
-            for file_path in files:
+            for i, file_path in enumerate(files):
+                if i > 0:
+                    print(f"Waiting for {args.wait} seconds")
+                    time.sleep(args.wait)
+
                 artist, track, album = processMetaData(file_path)
                 if not artist or not track:
                     print(f"Skipping: {file_path.name}")
@@ -47,9 +51,6 @@ def main():
 
                 lyric_data = fetchLyric(artist, track, token, album)
                 parseLyric(lyric_data, save_dest, args.synced)
-
-                print(f"Waiting for {args.wait} seconds")
-                time.sleep(args.wait)
 
         else:
             print(f"Error: Path '{args.path}' does not exist.")

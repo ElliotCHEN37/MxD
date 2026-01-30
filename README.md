@@ -14,7 +14,7 @@ MxD can help you fetch lyrics from Musixmatch<br>
 ```commandline
 usage: main.py [-h] [-a ARTIST] [-t TRACK] [-l ALBUM] [--token TOKEN] [--synced] [--max-depth MAX_DEPTH] [--wait WAIT] [path]
 
-MxD, a Musixmatch utility, version 1.1, by ElliotCHEN37
+MxD, a Musixmatch utility, version 1.0(2), by ElliotCHEN37
 
 positional arguments:
   path                  Path to audio file or folder

@@ -10,11 +10,12 @@ BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.0, by ElliotCHEN37")
+    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.1, by ElliotCHEN37")
 
     parser.add_argument("path", nargs="?", default=None, help="Path to audio file or folder")
     parser.add_argument("-a", "--artist", help="Artist Name")
     parser.add_argument("-t", "--track", help="Track Title")
+    parser.add_argument("-l", "--album", help="Album Name")
     parser.add_argument("--token", help="User Token (optional)")
     parser.add_argument("--synced", action="store_true", help="Download synced lyric (optional)")
     parser.add_argument("--max-depth", type=int, default=1, help="Max searching depth in sub-folder")
@@ -37,14 +38,14 @@ def main():
             files = scan(args.path, args.max_depth)
 
             for file_path in files:
-                artist, track = processMetaData(file_path)
+                artist, track, album = processMetaData(file_path)
                 if not artist or not track:
                     print(f"Skipping: {file_path.name}")
                     continue
 
                 save_dest = file_path.with_suffix(".lrc")
 
-                lyric_data = fetchLyric(artist, track, token)
+                lyric_data = fetchLyric(artist, track, token, album)
                 parseLyric(lyric_data, save_dest, args.synced)
 
                 print(f"Waiting for {args.wait} seconds")
@@ -72,7 +73,7 @@ def requestToken():
     print("Parsed successful")
     return token
 
-def fetchLyric(ARTIST, TRACK, token):
+def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
     print("Requesting lyric")
     params = {
         "format": "json",
@@ -83,6 +84,9 @@ def fetchLyric(ARTIST, TRACK, token):
         "q_track": TRACK,
         "usertoken": token
     }
+
+    if ALBUM:
+        params["q_album"] = ALBUM
 
     lyric_response = requests.get(BASE_URL + "macro.subtitles.get", params=params)
     lyric_data = lyric_response.json()
@@ -146,6 +150,7 @@ def processMetaData(file_path):
 
     artist_keys = ['artist', 'TPE1', '\xa9ART', 'aART']
     track_keys = ['title', 'TIT2', '\xa9nam']
+    album_keys = ['album', 'TALB', '\xa9alb']
 
     artist = None
     for key in artist_keys:
@@ -162,8 +167,14 @@ def processMetaData(file_path):
             track = str(audio[key][0])
             break
 
-    print(f"Read Artist: {artist}, Track: {track}")
-    return artist, track
+    album = None
+    for key in album_keys:
+        if key in audio:
+            album = str(audio[key][0])
+            break
+
+    print(f"Read Artist: {artist}, Track: {track}, Album: {album}")
+    return artist, track, album
 
 def scan(path, max_depth, current_depth=1):
     print("Scanning directory")

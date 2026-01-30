@@ -101,7 +101,10 @@ def parseLyric(lyric_data, destination, use_synced):
     print("Parsing lyric")
     requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"]["status_code"]
 
-    if requestStatusCode == 200:
+    if requestStatusCode == 401:
+        print("Token invalid")
+
+    elif requestStatusCode == 200:
         print("Status code == 200")
         lyricIfRestricted = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["restricted"]
         lyricIfInstrumental = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["instrumental"]

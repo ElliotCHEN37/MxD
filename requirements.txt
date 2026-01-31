@@ -3,3 +3,4 @@ charset-normalizer
 idna
 mutagen
 urllib3
+requests

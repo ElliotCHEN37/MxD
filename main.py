@@ -9,7 +9,7 @@ import logging
 BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
 
 def main():
-    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(1), by ElliotCHEN37")
+    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(2), by ElliotCHEN37")
 
     parser.add_argument("path", nargs="?", default=None, help="Path to audio file or folder")
     parser.add_argument("-a", "--artist", help="Artist Name")
@@ -77,7 +77,7 @@ def main():
                 parseLyric(lyric_data, save_dest, args.synced)
 
         else:
-            logging.error(f"Error: Path '{args.path}' does not exist.")
+            logging.error(f"Error: Path '{args.path}' does not exist.", exc_info=True)
 
     elif args.artist and args.track:
         logging.debug(f"Manual: {args.artist} - {args.track}")
@@ -87,7 +87,7 @@ def main():
         parseLyric(lyric_data, save_dest, args.synced)
 
     else:
-        logging.error("Error: Please provide a path or both artist (-a) and track (-t).")
+        logging.error("Error: Please provide a path or both artist (-a) and track (-t).", exc_info=True)
 
 def requestToken():
     logging.debug("Requesting token")
@@ -123,7 +123,7 @@ def parseLyric(lyric_data, destination, use_synced):
         requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"]["status_code"]
 
         if requestStatusCode == 401:
-            logging.error("Token invalid")
+            logging.error("Token invalid", exc_info=True)
 
         elif requestStatusCode == 200:
             logging.debug("Status code == 200")
@@ -133,7 +133,7 @@ def parseLyric(lyric_data, destination, use_synced):
             lyricIfSyncedAvailable = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["header"]["available"]
 
             if lyricIfRestricted:
-                logging.error("Restricted lyric")
+                logging.error("Restricted lyric", exc_info=True)
                 return
             elif lyricIfInstrumental:
                 logging.info("Instrumental")
@@ -151,9 +151,9 @@ def parseLyric(lyric_data, destination, use_synced):
                 writeFile(destination, lyricBody)
 
         else:
-            logging.error(f"Error occurred, status code: {requestStatusCode}")
+            logging.error(f"Error occurred, status code: {requestStatusCode}", exc_info=True)
     except (KeyError, TypeError) as e:
-        logging.error(f"Error occurred when parsing response: {e}")
+        logging.error(f"Error occurred when parsing response: {e}", exc_info=True)
         return
 
 def writeFile(destination, content):
@@ -208,30 +208,30 @@ def processMetaData(file_path):
     logging.debug(f"Read Artist: {artist}, Track: {track}, Album: {album}")
     return artist, track, album
 
-def scan(path, max_depth, current_depth=1):
-    logging.info("Scanning directory")
-    format_list = {'.mp3', '.flac', '.m4a', '.ogg', '.wav'}
 
-    if os.path.isfile(path):
-        if os.path.splitext(path)[1].lower() in format_list:
-            return [Path(path)]
-        else:
-            return []
-
+def scan(path, max_depth):
+    path_obj = Path(path)
+    format_list = ['*.mp3', '*.flac', '*.m4a', '*.ogg', '*.wav']
     found_files = []
 
-    try:
-        entries = list(os.scandir(path))
-    except PermissionError:
-        return []
+    if path_obj.is_file():
+        if any(path_obj.match(ext) for ext in format_list):
+            found_files.append(path_obj)
+        return found_files
 
-    for entry in entries:
-        if entry.is_file() and os.path.splitext(entry.name)[1].lower() in format_list:
-            found_files.append(Path(entry.path))
+    if path_obj.is_dir():
+        if max_depth == 0:
+            for ext in format_list:
+                found_files.extend(path_obj.rglob(ext))
+        else:
+            for d in range(1, max_depth + 1):
+                depth_prefix = "/".join(["*"] * (d - 1))
+                if depth_prefix:
+                    depth_prefix += "/"
 
-        elif entry.is_dir():
-            if max_depth == 0 or current_depth < max_depth:
-                found_files.extend(scan(entry.path, max_depth, current_depth + 1))
+                for ext in format_list:
+                    pattern = depth_prefix + ext
+                    found_files.extend(path_obj.glob(pattern))
 
     return found_files
 

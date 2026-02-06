@@ -4,11 +4,12 @@ import os
 from mutagen import File
 from pathlib import Path
 import time
+import logging
 
 BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
 
 def main():
-    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.1(3), by ElliotCHEN37")
+    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(1), by ElliotCHEN37")
 
     parser.add_argument("path", nargs="?", default=None, help="Path to audio file or folder")
     parser.add_argument("-a", "--artist", help="Artist Name")
@@ -20,42 +21,55 @@ def main():
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing .lrc files")
     parser.add_argument("--max-depth", type=int, default=1, help="Max searching depth in sub-folder")
     parser.add_argument("--wait", type=float, default=30.0, help="Wait for a moment between downloads")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Display detailed debug information")
 
     args = parser.parse_args()
 
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+        handlers = [
+            logging.FileHandler("log.txt", encoding="utf-8"),
+            logging.StreamHandler()
+        ]
+    )
+
     if args.token:
-        print("User token available, continue")
+        logging.info("User token available, continue")
         token = args.token
     elif args.refresh_token:
-        print("Refreshing user token")
+        logging.info("Refreshing user token")
         token = requestToken()
         writeFile(".token", token)
-        print("Token written")
+        logging.debug("Token written")
     else:
-        print("User token not available, requesting")
+        logging.debug("User token not provided")
         token = IfTokenAvailable()
 
     if args.path:
         ifRaisedRequest = False
         path_obj = Path(args.path)
         if path_obj.exists():
-            print(f"Processing: {args.path}")
+            logging.debug(f"Processing: {args.path}")
             files = scan(args.path, args.max_depth)
 
             for i, file_path in enumerate(files):
                 artist, track, album = processMetaData(file_path)
                 if not artist or not track:
-                    print(f"Skipping: {file_path.name}")
+                    logging.warning(f"Skipping: {file_path.name}")
                     continue
 
                 save_dest = file_path.with_suffix(".lrc")
 
                 if save_dest.exists() and not args.overwrite:
-                    print(f"Skipping: {artist} - {track}")
+                    logging.warning(f"Skipping: {artist} - {track}")
                     continue
 
                 if ifRaisedRequest:
-                    print(f"Waiting for {args.wait} seconds")
+                    logging.info(f"Waiting for {args.wait} seconds")
                     time.sleep(args.wait)
 
                 lyric_data = fetchLyric(artist, track, token, album)
@@ -63,29 +77,29 @@ def main():
                 parseLyric(lyric_data, save_dest, args.synced)
 
         else:
-            print(f"Error: Path '{args.path}' does not exist.")
+            logging.error(f"Error: Path '{args.path}' does not exist.")
 
     elif args.artist and args.track:
-        print(f"Manual: {args.artist} - {args.track}")
+        logging.debug(f"Manual: {args.artist} - {args.track}")
         save_dest = f"{args.artist} - {args.track}.lrc"
 
         lyric_data = fetchLyric(args.artist, args.track, token)
         parseLyric(lyric_data, save_dest, args.synced)
 
     else:
-        print("Error: Please provide a path or both artist (-a) and track (-t).")
+        logging.error("Error: Please provide a path or both artist (-a) and track (-t).")
 
 def requestToken():
-    print("Requesting token")
+    logging.debug("Requesting token")
     token_response = requests.get(BASE_URL + "token.get?app_id=web-desktop-app-v1.0", timeout=10)
-    print("Parsing token")
+    logging.debug("Parsing token")
     token_data = token_response.json()
     token = token_data["message"]["body"]["user_token"]
-    print("Parsed successful")
+    logging.info("Parsed successful, writing")
     return token
 
 def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
-    print("Requesting lyric")
+    logging.info("Requesting lyric")
     params = {
         "format": "json",
         "namespace": "lyrics_richsynched",
@@ -104,61 +118,61 @@ def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
     return lyric_data
 
 def parseLyric(lyric_data, destination, use_synced):
-    print("Parsing lyric")
+    logging.info("Parsing lyric")
     try:
         requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"]["status_code"]
 
         if requestStatusCode == 401:
-            print("Token invalid")
+            logging.error("Token invalid")
 
         elif requestStatusCode == 200:
-            print("Status code == 200")
+            logging.debug("Status code == 200")
             lyricIfRestricted = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["restricted"]
             lyricIfInstrumental = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["instrumental"]
             lyricBody = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["lyrics_body"]
             lyricIfSyncedAvailable = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["header"]["available"]
 
             if lyricIfRestricted:
-                print("Restricted lyric")
+                logging.error("Restricted lyric")
                 return
             elif lyricIfInstrumental:
-                print("Instrumental")
+                logging.info("Instrumental")
                 writeFile(destination, f"This song is instrumental.\nLet the music play...")
             elif lyricIfSyncedAvailable:
                 if use_synced:
-                    print("Synced lyric available, writing")
+                    logging.debug("Synced lyric available, writing")
                     lyricSyncedBody = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["body"]["subtitle_list"][0]["subtitle"]["subtitle_body"]
                     writeFile(destination, lyricSyncedBody)
                 else:
-                    print("Writing the unsynced one")
+                    logging.info("Writing the unsynced one")
                     writeFile(destination, lyricBody)
             else:
-                print("Synced lyric not available, using the unsynced one instead")
+                logging.warning("Synced lyric not available, using the unsynced one instead")
                 writeFile(destination, lyricBody)
 
         else:
-            print(f"Error occurred, status code: {requestStatusCode}")
+            logging.error(f"Error occurred, status code: {requestStatusCode}")
     except (KeyError, TypeError) as e:
-        print(f"Error occurred when parsing response: {e}")
+        logging.error(f"Error occurred when parsing response: {e}")
         return
 
 def writeFile(destination, content):
-    print("Writing file")
+    logging.debug("Writing file")
     with open(destination, "w", encoding="utf-8") as f:
         f.write(content)
-    print("Done")
+    logging.info("Done")
 
 def IfTokenAvailable():
     if os.path.exists("./.token"):
-        print("Saved token found")
+        logging.debug("Saved token found")
         with open("./.token", "r") as f:
-            print("Token read")
+            logging.debug("Token read")
             return f.read().strip()
     else:
-        print("No saved token found, requesting")
+        logging.info("No saved token found, requesting")
         token = requestToken()
         writeFile(".token", token)
-        print("Token written")
+        logging.debug("Token written")
         return token
 
 def processMetaData(file_path):
@@ -191,11 +205,11 @@ def processMetaData(file_path):
             album = str(audio[key][0])
             break
 
-    print(f"Read Artist: {artist}, Track: {track}, Album: {album}")
+    logging.debug(f"Read Artist: {artist}, Track: {track}, Album: {album}")
     return artist, track, album
 
 def scan(path, max_depth, current_depth=1):
-    print("Scanning directory")
+    logging.info("Scanning directory")
     format_list = {'.mp3', '.flac', '.m4a', '.ogg', '.wav'}
 
     if os.path.isfile(path):

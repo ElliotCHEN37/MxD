@@ -8,6 +8,7 @@ import logging
 
 BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
 
+
 def main():
     parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(2), by ElliotCHEN37")
 
@@ -31,7 +32,7 @@ def main():
         level=log_level,
         format='%(asctime)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S',
-        handlers = [
+        handlers=[
             logging.FileHandler("log.txt", encoding="utf-8"),
             logging.StreamHandler()
         ]
@@ -77,7 +78,7 @@ def main():
                 parseLyric(lyric_data, save_dest, args.synced)
 
         else:
-            logging.error(f"Error: Path '{args.path}' does not exist.", exc_info=True)
+            logging.error(f"Error: Path '{args.path}' does not exist.")
 
     elif args.artist and args.track:
         logging.debug(f"Manual: {args.artist} - {args.track}")
@@ -87,7 +88,8 @@ def main():
         parseLyric(lyric_data, save_dest, args.synced)
 
     else:
-        logging.error("Error: Please provide a path or both artist (-a) and track (-t).", exc_info=True)
+        logging.error("Error: Please provide a path or both artist (-a) and track (-t).")
+
 
 def requestToken():
     logging.debug("Requesting token")
@@ -97,6 +99,7 @@ def requestToken():
     token = token_data["message"]["body"]["user_token"]
     logging.info("Parsed successful, writing")
     return token
+
 
 def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
     logging.info("Requesting lyric")
@@ -117,23 +120,31 @@ def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
     lyric_data = lyric_response.json()
     return lyric_data
 
+
 def parseLyric(lyric_data, destination, use_synced):
     logging.info("Parsing lyric")
     try:
-        requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"]["status_code"]
+        requestStatusCode = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["header"][
+            "status_code"]
 
         if requestStatusCode == 401:
-            logging.error("Token invalid", exc_info=True)
+            logging.error("Token invalid")
 
         elif requestStatusCode == 200:
             logging.debug("Status code == 200")
-            lyricIfRestricted = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["restricted"]
-            lyricIfInstrumental = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["instrumental"]
-            lyricBody = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"]["lyrics_body"]
-            lyricIfSyncedAvailable = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["header"]["available"]
+            lyricIfRestricted = \
+                lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"][
+                    "restricted"]
+            lyricIfInstrumental = \
+                lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"][
+                    "instrumental"]
+            lyricBody = lyric_data["message"]["body"]["macro_calls"]["track.lyrics.get"]["message"]["body"]["lyrics"][
+                "lyrics_body"]
+            lyricIfSyncedAvailable = \
+                lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["header"]["available"]
 
             if lyricIfRestricted:
-                logging.error("Restricted lyric", exc_info=True)
+                logging.error("Restricted lyric")
                 return
             elif lyricIfInstrumental:
                 logging.info("Instrumental")
@@ -141,7 +152,9 @@ def parseLyric(lyric_data, destination, use_synced):
             elif lyricIfSyncedAvailable:
                 if use_synced:
                     logging.debug("Synced lyric available, writing")
-                    lyricSyncedBody = lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["body"]["subtitle_list"][0]["subtitle"]["subtitle_body"]
+                    lyricSyncedBody = \
+                        lyric_data["message"]["body"]["macro_calls"]["track.subtitles.get"]["message"]["body"][
+                            "subtitle_list"][0]["subtitle"]["subtitle_body"]
                     writeFile(destination, lyricSyncedBody)
                 else:
                     logging.info("Writing the unsynced one")
@@ -151,16 +164,23 @@ def parseLyric(lyric_data, destination, use_synced):
                 writeFile(destination, lyricBody)
 
         else:
-            logging.error(f"Error occurred, status code: {requestStatusCode}", exc_info=True)
+            logging.error(f"Error occurred, status code: {requestStatusCode}")
     except (KeyError, TypeError) as e:
         logging.error(f"Error occurred when parsing response: {e}", exc_info=True)
         return
 
+
 def writeFile(destination, content):
-    logging.debug("Writing file")
-    with open(destination, "w", encoding="utf-8") as f:
-        f.write(content)
-    logging.info("Done")
+    logging.debug(f"Attempting to write to {destination}")
+    try:
+        with open(destination, "w", encoding="utf-8") as f:
+            f.write(content)
+        logging.info(f"Successfully written: {destination}")
+    except OSError as e:
+        logging.error(f"File system error occurred when writing to {destination}: {e}")
+    except Exception as e:
+        logging.error(f"Error occurred when writing to {destination}: {e}", exc_info=True)
+
 
 def IfTokenAvailable():
     if os.path.exists("./.token"):
@@ -174,6 +194,7 @@ def IfTokenAvailable():
         writeFile(".token", token)
         logging.debug("Token written")
         return token
+
 
 def processMetaData(file_path):
     audio = File(file_path)
@@ -234,6 +255,7 @@ def scan(path, max_depth):
                     found_files.extend(path_obj.glob(pattern))
 
     return found_files
+
 
 if __name__ == "__main__":
     main()

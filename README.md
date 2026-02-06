@@ -12,9 +12,9 @@ MxD can help you fetch lyrics from Musixmatch<br>
 `python main.py -h`
 3. Here's the output<br>
 ```commandline
-usage: main.py [-h] [-a ARTIST] [-t TRACK] [-l ALBUM] [--token TOKEN] [--refresh-token] [--synced] [--overwrite] [--max-depth MAX_DEPTH] [--wait WAIT] [path]
+usage: main.py [-h] [-a ARTIST] [-t TRACK] [-l ALBUM] [--token TOKEN] [--refresh-token] [--synced] [--overwrite] [--max-depth MAX_DEPTH] [--wait WAIT] [-v] [path]
 
-MxD, a Musixmatch utility, version 1.1(3), by ElliotCHEN37
+MxD, a Musixmatch utility, version 1.2(3), by ElliotCHEN37
 
 positional arguments:
   path                  Path to audio file or folder
@@ -34,6 +34,7 @@ optional arguments:
   --max-depth MAX_DEPTH
                         Max searching depth in sub-folder
   --wait WAIT           Wait for a moment between downloads
+  -v, --verbose         Display detailed debug information
 ```
 
 ----

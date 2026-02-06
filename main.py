@@ -10,7 +10,7 @@ BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(2), by ElliotCHEN37")
+    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(3), by ElliotCHEN37")
 
     parser.add_argument("path", nargs="?", default=None, help="Path to audio file or folder")
     parser.add_argument("-a", "--artist", help="Artist Name")

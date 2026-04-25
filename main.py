@@ -80,11 +80,12 @@ def main():
         else:
             logging.error(f"Error: Path '{args.path}' does not exist.")
 
+
     elif args.artist and args.track:
         logging.debug(f"Manual: {args.artist} - {args.track}")
         save_dest = f"{args.artist} - {args.track}.lrc"
 
-        lyric_data = fetchLyric(args.artist, args.track, token)
+        lyric_data = fetchLyric(args.artist, args.track, token, args.album)
         parseLyric(lyric_data, save_dest, args.synced)
 
     else:

@@ -218,7 +218,7 @@ def processMetaData(file_path):
     for key in artist_keys:
         if key in audio:
             artist = str(audio[key][0])
-            for separator in ['/', ',', ';', '&', 'feat. ', 'with ']:
+            for separator in ['/', ',', ';', 'feat. ', 'with ']:
                 if separator in artist.lower():
                     artist = artist.split(separator, 1)[0].strip()
             break

@@ -6,11 +6,19 @@ from pathlib import Path
 import time
 import logging
 
-BASE_URL = "https://apic.musixmatch.com/ws/1.1/"
+BASE_URL = "https://apic-appmobile.musixmatch.com/ws/1.1/"
+MXMHEADER = {"Host": "apic-appmobile.musixmatch.com",
+		"authority": "apic-appmobile.musixmatch.com",
+		"X-Cookie": "x-mxm-token-guid=",
+		"x-mxm-app-version": "10.1.1",
+		"X-User-Agent": "Musixmatch/2025120901 CFNetwork/3860.300.31 Darwin/25.2.0",
+		"Accept-Language": "en-US,en;q=0.9",
+		"Connection": "keep-alive",
+		"Accept": "application/json",}
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.2(3), by ElliotCHEN37")
+    parser = argparse.ArgumentParser(description="MxD, a Musixmatch utility, version 1.3(1), by ElliotCHEN37")
 
     parser.add_argument("path", nargs="?", default=None, help="Path to audio file or folder")
     parser.add_argument("-a", "--artist", help="Artist Name")
@@ -94,7 +102,7 @@ def main():
 
 def requestToken():
     logging.debug("Requesting token")
-    token_response = requests.get(BASE_URL + "token.get?app_id=web-desktop-app-v1.0", timeout=10)
+    token_response = requests.get(BASE_URL + "token.get?app_id=mac-ios-v2.0", timeout=10, headers=MXMHEADER)
     logging.debug("Parsing token")
     token_data = token_response.json()
     token = token_data["message"]["body"]["user_token"]
@@ -108,7 +116,7 @@ def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
         "format": "json",
         "namespace": "lyrics_richsynched",
         "subtitle_format": "lrc",
-        "app_id": "web-desktop-app-v1.0",
+        "app_id": "mac-ios-v2.0",
         "q_artist": ARTIST,
         "q_track": TRACK,
         "usertoken": token
@@ -117,7 +125,7 @@ def fetchLyric(ARTIST, TRACK, token, ALBUM=None):
     if ALBUM:
         params["q_album"] = ALBUM
 
-    lyric_response = requests.get(BASE_URL + "macro.subtitles.get", params=params, timeout=10)
+    lyric_response = requests.get(BASE_URL + "macro.subtitles.get", params=params, timeout=10, headers=MXMHEADER)
     lyric_data = lyric_response.json()
     return lyric_data
 
